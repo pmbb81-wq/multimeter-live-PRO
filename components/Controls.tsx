@@ -37,14 +37,15 @@ function ActionButton({
   );
 }
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
     <button
       role="switch"
       aria-checked={checked}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
       className={clsx(
-        'relative h-5 w-9 flex-shrink-0 rounded-full transition-colors',
+        'relative h-5 w-9 flex-shrink-0 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40',
         checked ? 'bg-accent' : 'border border-border bg-surface',
       )}
     >
@@ -65,6 +66,12 @@ export function Controls({
   onRangeMaxChange,
   autoScale,
   onAutoScaleChange,
+  triggerThreshold,
+  onTriggerThresholdChange,
+  triggerArmed,
+  onTriggerArmedChange,
+  canArm,
+  triggerUnit,
   recording,
   onToggleRecord,
   canRecord,
@@ -78,6 +85,12 @@ export function Controls({
   onRangeMaxChange: (v: string) => void;
   autoScale: boolean;
   onAutoScaleChange: (v: boolean) => void;
+  triggerThreshold: string;
+  onTriggerThresholdChange: (v: string) => void;
+  triggerArmed: boolean;
+  onTriggerArmedChange: (v: boolean) => void;
+  canArm: boolean;
+  triggerUnit: string;
   recording: boolean;
   onToggleRecord: () => void;
   canRecord: boolean;
@@ -112,6 +125,27 @@ export function Controls({
               placeholder="auto"
             />
           </div>
+        </div>
+
+        <hr className="border-border" />
+
+        {/* Trigger */}
+        <div>
+          <SectionHeader>Trigger</SectionHeader>
+
+          <div className="mb-3 flex items-center justify-between">
+            <span className={clsx('text-xs', canArm ? 'text-muted' : 'text-border')}>
+              Auto-start on trigger
+            </span>
+            <Toggle checked={triggerArmed} onChange={onTriggerArmedChange} disabled={!canArm} />
+          </div>
+
+          <RangeField
+            label={triggerUnit ? `Threshold (${triggerUnit})` : 'Threshold'}
+            value={triggerThreshold}
+            onChange={onTriggerThresholdChange}
+            placeholder="0"
+          />
         </div>
 
         <hr className="border-border" />

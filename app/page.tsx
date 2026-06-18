@@ -12,6 +12,9 @@ import { normalizeReading, type Reading } from '@/lib/parser';
 import { useSerial, type SerialStatus } from '@/lib/useSerial';
 
 const MAX_CHART_POINTS = 3600;
+// Trigger auto-stop releases at RELEASE_RATIO × threshold (hysteresis dead-band)
+// so a signal hovering at the threshold doesn't flap logging on and off.
+const RELEASE_RATIO = 0.9;
 
 const toFinite = (s: string): number | null => {
   if (s === '') return null;
@@ -43,6 +46,8 @@ export default function Home() {
   const [rangeMax, setRangeMax] = useState('');
   const [autoScale, setAutoScale] = useState(true);
   const [timeRange, setTimeRange] = useState<TimeRange>('10s');
+  const [triggerArmed, setTriggerArmed] = useState(false);
+  const [triggerThreshold, setTriggerThreshold] = useState('');
 
   const recordedRef = useRef<Reading[]>([]);
 
@@ -54,13 +59,21 @@ export default function Home() {
   const autoScaleRef = useRef(autoScale);
   const modeRef = useRef<string | null>(null);
   const unitRef = useRef<string>('');
+  const triggerArmedRef = useRef(triggerArmed);
+  const triggerThresholdRef = useRef<number | null>(null);
+  // Whether the current session was auto-started by the trigger (scopes auto-stop).
+  const triggerStartedRef = useRef(false);
 
   const setRec = useCallback((v: boolean) => {
     recordingRef.current = v;
+    // A stop (manual or disconnect) ends any trigger-started session.
+    if (!v) triggerStartedRef.current = false;
     setRecording(v);
   }, []);
 
   useEffect(() => { autoScaleRef.current = autoScale; }, [autoScale]);
+  useEffect(() => { triggerArmedRef.current = triggerArmed; }, [triggerArmed]);
+  useEffect(() => { triggerThresholdRef.current = toFinite(triggerThreshold); }, [triggerThreshold]);
 
   const flushSession = useCallback(() => {
     recordedRef.current = [];
@@ -73,20 +86,57 @@ export default function Home() {
     (readings: Reading[]) => {
       setCurrent(readings[readings.length - 1]);
 
-      // Range bounds are constant for the whole batch — resolve them once.
+      // Range and trigger bounds are constant for the whole batch — resolve once.
       const rMin = autoScaleRef.current ? null : toFinite(rangeMin);
       const rMax = autoScaleRef.current ? null : toFinite(rangeMax);
+      let armed = triggerArmedRef.current;
+      let threshold = triggerThresholdRef.current;
+      let release = threshold !== null ? threshold * RELEASE_RATIO : null;
 
+      let recordingChanged = false;
       const newPoints: ChartPoint[] = [];
       for (const r of readings) {
         const { baseValue, baseUnit } = normalizeReading(r);
 
         if (baseUnit !== '' && (modeRef.current !== r.mode || unitRef.current !== baseUnit)) {
+          const wasInitialised = modeRef.current !== null;
           modeRef.current = r.mode;
           unitRef.current = baseUnit;
           setChartUnit(baseUnit);
           flushSession();
           newPoints.length = 0;
+          // A real mode/unit change makes the in-progress data and threshold
+          // meaningless in the new unit — stop logging, then reset the trigger
+          // (clear threshold + disarm). (Skip on the first reading, which is
+          // initial detection, not a change, so a pre-typed threshold survives.)
+          if (wasInitialised) {
+            if (recordingRef.current) {
+              recordingRef.current = false;
+              recordingChanged = true;
+            }
+            triggerThresholdRef.current = null;
+            triggerArmedRef.current = false;
+            triggerStartedRef.current = false;
+            armed = false;
+            threshold = null;
+            release = null;
+            setTriggerThreshold('');
+            setTriggerArmed(false);
+          }
+        }
+
+        // Trigger edges (evaluated before recording so the crossing sample is captured).
+        const mag = baseValue !== null ? Math.abs(baseValue) : null;
+        if (armed && threshold !== null && !recordingRef.current && mag !== null && mag > threshold) {
+          flushSession();
+          newPoints.length = 0;
+          recordingRef.current = true;
+          triggerStartedRef.current = true;
+          recordingChanged = true;
+        } else if (triggerStartedRef.current && recordingRef.current && release !== null && mag !== null && mag < release) {
+          recordingRef.current = false;
+          triggerStartedRef.current = false;
+          recordingChanged = true;
         }
 
         if (recordingRef.current) {
@@ -120,6 +170,9 @@ export default function Home() {
         });
       }
 
+      // Commit a trigger-driven recording transition once (no per-sample setState).
+      if (recordingChanged) setRecording(recordingRef.current);
+
       if (recordingRef.current) setSessionStats({ ...statsRef.current });
     },
     [flushSession, rangeMin, rangeMax],
@@ -133,7 +186,11 @@ export default function Home() {
   }, [status, setRec]);
 
   const handleConnect = useCallback(() => connect(baud), [connect, baud]);
-  const handleToggleRecord = useCallback(() => setRec(!recordingRef.current), [setRec]);
+  const handleToggleRecord = useCallback(() => {
+    // Manual toggle → this session is not trigger-owned, so never auto-stop it.
+    triggerStartedRef.current = false;
+    setRec(!recordingRef.current);
+  }, [setRec]);
 
   const exportCsv = useCallback(() => {
     const rows: string[] = ['Timestamp,Mode,Value,Unit'];
@@ -228,6 +285,12 @@ export default function Home() {
           onRangeMaxChange={setRangeMax}
           autoScale={autoScale}
           onAutoScaleChange={setAutoScale}
+          triggerThreshold={triggerThreshold}
+          onTriggerThresholdChange={setTriggerThreshold}
+          triggerArmed={triggerArmed}
+          onTriggerArmedChange={setTriggerArmed}
+          canArm={toFinite(triggerThreshold) !== null && status === 'connected'}
+          triggerUnit={chartUnit}
           recording={recording}
           onToggleRecord={handleToggleRecord}
           canRecord={status === 'connected'}
