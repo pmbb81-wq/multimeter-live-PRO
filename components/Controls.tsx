@@ -75,6 +75,8 @@ export function Controls({
   recording,
   onToggleRecord,
   canRecord,
+  stableOnly,
+  onStableOnlyChange,
   onClear,
   onExportCsv,
   canExport,
@@ -94,6 +96,8 @@ export function Controls({
   recording: boolean;
   onToggleRecord: () => void;
   canRecord: boolean;
+  stableOnly: boolean;
+  onStableOnlyChange: (v: boolean) => void;
   onClear: () => void;
   onExportCsv: () => void;
   canExport: boolean;
@@ -153,6 +157,12 @@ export function Controls({
         {/* Quick Actions */}
         <div>
           <SectionHeader>Quick Actions</SectionHeader>
+
+          <div className="mb-3 flex items-center justify-between">
+            <span className="text-xs text-muted">Stable values only</span>
+            <Toggle checked={stableOnly} onChange={onStableOnlyChange} />
+          </div>
+
           <div className="space-y-1.5">
             <ActionButton
               onClick={onToggleRecord}

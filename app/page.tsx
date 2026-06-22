@@ -8,13 +8,19 @@ import { RealtimeChart, type ChartPoint, type TimeRange } from '@/components/Rea
 import { Controls } from '@/components/Controls';
 import { Sidebar } from '@/components/Sidebar';
 import { StatisticsPanel } from '@/components/StatisticsPanel';
-import { normalizeReading, type Reading } from '@/lib/parser';
+import { normalizeReading, readingResolution, resolutionDecimals, type Reading } from '@/lib/parser';
 import { useSerial, type SerialStatus } from '@/lib/useSerial';
 
 const MAX_CHART_POINTS = 3600;
 // Trigger auto-stop releases at RELEASE_RATIO × threshold (hysteresis dead-band)
 // so a signal hovering at the threshold doesn't flap logging on and off.
 const RELEASE_RATIO = 0.9;
+// Stable-only logging: after a settled value is logged, the next stable value is
+// logged only once it differs from the last logged value by at least this
+// fraction (50%). This ignores small drift (e.g. ±1 LSD) and captures only major
+// changes. NOTE: a relative gate is very sensitive near zero (0.0001→0.0002 is
+// +100%); add an absolute floor here if that proves noisy in practice.
+const MAJOR_CHANGE_RATIO = 0.5;
 
 const toFinite = (s: string): number | null => {
   if (s === '') return null;
@@ -48,6 +54,13 @@ export default function Home() {
   const [timeRange, setTimeRange] = useState<TimeRange>('10s');
   const [triggerArmed, setTriggerArmed] = useState(false);
   const [triggerThreshold, setTriggerThreshold] = useState('');
+  const [stableOnly, setStableOnly] = useState(false);
+  // Mirror of recordedResolutionRef for render (histogram bin width + stat decimals);
+  // the ref is the loop-side source, this state is its render-safe copy per batch.
+  const [recordedResolution, setRecordedResolution] = useState<number | null>(null);
+  // Value the meter spent the most readings at — the histogram window center, so a
+  // brief outlier (short/disconnect) doesn't pull the window off the main reading.
+  const [dominantValue, setDominantValue] = useState<number | null>(null);
 
   const recordedRef = useRef<Reading[]>([]);
 
@@ -65,11 +78,30 @@ export default function Home() {
   const timeRangeRef = useRef(timeRange);
   // Whether the current session was auto-started by the trigger (scopes auto-stop).
   const triggerStartedRef = useRef(false);
+  const stableOnlyRef = useRef(stableOnly);
+  // Stable-only tracking (read synchronously in the read loop): the previous
+  // numeric reading's raw value (for exact stability detection), and the last
+  // logged base value (the reference for the major-change gate + dedup guard).
+  const prevValueRef = useRef<number | null>(null);
+  const lastLoggedValueRef = useRef<number | null>(null);
+  // Coarsest LSD (resolution) among readings actually logged to the chart — the
+  // basis for histogram bin width AND statistics decimals, so both reflect the
+  // stored data (not the live reading, which can auto-range to a finer step).
+  // Frozen while logging is stopped. Reset with the session in flushSession.
+  const recordedResolutionRef = useRef<number | null>(null);
+  // Raw reading time spent at each LSD-snapped value while recording → the
+  // dominant (most-held) value, used to center the histogram window. Bounded by
+  // distinct values seen; reset with the session. dominantCountRef = running max.
+  const rawCountsRef = useRef<Map<number, number>>(new Map());
+  const dominantValueRef = useRef<number | null>(null);
+  const dominantCountRef = useRef(0);
 
   const setRec = useCallback((v: boolean) => {
     recordingRef.current = v;
     // A stop (manual or disconnect) ends any trigger-started session.
     if (!v) triggerStartedRef.current = false;
+    // A fresh start must not inherit a stale predecessor from before it began.
+    if (v) { prevValueRef.current = null; lastLoggedValueRef.current = null; }
     setRecording(v);
   }, []);
 
@@ -77,12 +109,21 @@ export default function Home() {
   useEffect(() => { timeRangeRef.current = timeRange; }, [timeRange]);
   useEffect(() => { triggerArmedRef.current = triggerArmed; }, [triggerArmed]);
   useEffect(() => { triggerThresholdRef.current = toFinite(triggerThreshold); }, [triggerThreshold]);
+  useEffect(() => { stableOnlyRef.current = stableOnly; }, [stableOnly]);
 
   const flushSession = useCallback(() => {
     recordedRef.current = [];
     statsRef.current = { count: 0, mean: 0, m2: 0, min: Infinity, max: -Infinity };
+    prevValueRef.current = null;
+    lastLoggedValueRef.current = null;
+    recordedResolutionRef.current = null;
+    rawCountsRef.current = new Map();
+    dominantValueRef.current = null;
+    dominantCountRef.current = 0;
     setSessionStats(null);
     setChartPoints([]);
+    setRecordedResolution(null);
+    setDominantValue(null);
   }, []);
 
   const handleReadings = useCallback(
@@ -143,24 +184,67 @@ export default function Home() {
         }
 
         if (recordingRef.current) {
-          recordedRef.current.push(r);
-          if (baseValue !== null) {
-            const s = statsRef.current;
-            s.count += 1;
-            const delta = baseValue - s.mean;
-            s.mean += delta / s.count;
-            s.m2 += delta * (baseValue - s.mean);
-            if (baseValue < s.min) s.min = baseValue;
-            if (baseValue > s.max) s.max = baseValue;
+          const stableFilter = stableOnlyRef.current;
+          if (baseValue === null) {
+            // OL is never stable: logged to CSV only when the filter is off, and
+            // either way it's a discontinuity — reset the run and the reference.
+            if (!stableFilter) recordedRef.current.push(r);
+            prevValueRef.current = null;
+            lastLoggedValueRef.current = null;
+          } else {
+            // With the stable filter on, log a value once it is confirmed stable
+            // (equals its predecessor) AND it differs from the last logged value
+            // by a major amount — so small drift around a settled reading and the
+            // rest of a plateau are suppressed. (Ratio is scale-invariant, so the
+            // narrowed baseValue is used; raw r.value drives exact stability.)
+            let logSample = true;
+            if (stableFilter) {
+              const stable = prevValueRef.current !== null && r.value === prevValueRef.current;
+              const last = lastLoggedValueRef.current;
+              const major =
+                last === null ||
+                (baseValue !== last && Math.abs(baseValue - last) >= MAJOR_CHANGE_RATIO * Math.abs(last));
+              logSample = stable && major;
+              if (logSample) lastLoggedValueRef.current = baseValue;
+            }
+            prevValueRef.current = r.value;
+
+            // Count time at this value (LSD-snapped) to find the dominant value
+            // for the histogram window center. Counts every reading, not just
+            // logged ones, so a held value wins over a brief outlier.
+            const res = readingResolution(r);
+            if (res !== null) {
+              const k = Math.round(baseValue / res) * res;
+              const c = (rawCountsRef.current.get(k) ?? 0) + 1;
+              rawCountsRef.current.set(k, c);
+              if (c > dominantCountRef.current) {
+                dominantCountRef.current = c;
+                dominantValueRef.current = k;
+              }
+            }
+
+            if (logSample) {
+              recordedRef.current.push(r);
+              // Track the coarsest LSD among logged readings → bin width + stat
+              // decimals reflect the recorded data, range-robust to auto-ranging.
+              if (res !== null) {
+                recordedResolutionRef.current = Math.max(recordedResolutionRef.current ?? 0, res);
+              }
+              const s = statsRef.current;
+              s.count += 1;
+              const delta = baseValue - s.mean;
+              s.mean += delta / s.count;
+              s.m2 += delta * (baseValue - s.mean);
+              if (baseValue < s.min) s.min = baseValue;
+              if (baseValue > s.max) s.max = baseValue;
+              // Clamp to range and flag out-of-range in a single pass.
+              let chartV = baseValue;
+              let oor = false;
+              if (rMax !== null && baseValue > rMax) { chartV = rMax; oor = true; }
+              else if (rMin !== null && baseValue < rMin) { chartV = rMin; oor = true; }
+              newPoints.push({ ts: r.ts, v: chartV, oor });
+            }
           }
-          // Clamp to range and flag out-of-range in a single pass.
-          let chartV = baseValue;
-          let oor = false;
-          if (baseValue !== null) {
-            if (rMax !== null && baseValue > rMax) { chartV = rMax; oor = true; }
-            else if (rMin !== null && baseValue < rMin) { chartV = rMin; oor = true; }
-          }
-          newPoints.push({ ts: r.ts, v: chartV, oor });
         }
       }
 
@@ -179,6 +263,11 @@ export default function Home() {
       if (recordingChanged) setRecording(recordingRef.current);
 
       if (recordingRef.current) setSessionStats({ ...statsRef.current });
+
+      // Mirror the recorded resolution + dominant value to state. (Unchanged when
+      // nothing was logged this batch — e.g. logging stopped → React bails out.)
+      setRecordedResolution(recordedResolutionRef.current);
+      setDominantValue(dominantValueRef.current);
     },
     [flushSession, rangeMin, rangeMax],
   );
@@ -195,6 +284,12 @@ export default function Home() {
     // Manual toggle → this session is not trigger-owned, so never auto-stop it.
     triggerStartedRef.current = false;
     setRec(!recordingRef.current);
+  }, [setRec]);
+  const handleStableOnlyChange = useCallback((v: boolean) => {
+    setStableOnly(v);
+    // Enabling the filter auto-starts logging (mirrors the Record button);
+    // disabling only stops filtering and leaves logging as-is.
+    if (v) setRec(true);
   }, [setRec]);
 
   const exportCsv = useCallback(() => {
@@ -216,6 +311,23 @@ export default function Home() {
   const canExport = recordedCount > 0;
   const effectiveYMin = autoScale ? undefined : (toFinite(rangeMin) ?? undefined);
   const effectiveYMax = autoScale ? undefined : (toFinite(rangeMax) ?? undefined);
+  // Histogram bin width + statistics decimals. When data is present they are a
+  // property of the recorded data, so use the frozen coarsest recorded resolution —
+  // this keeps both stable when logging is stopped and the live value changes scale
+  // or goes OL. When empty, derive from the live reading to preview the window.
+  const liveNumeric = current && normalizeReading(current).baseValue !== null ? current : null;
+  const binWidth =
+    chartPoints.length > 0
+      ? (recordedResolution ?? undefined)
+      : (liveNumeric ? (readingResolution(liveNumeric) ?? undefined) : undefined);
+  // Histogram window center: the time-dominant recorded value when data is present
+  // (outliers fall into under/over-range bins), else the live reading for preview.
+  const centerValue =
+    chartPoints.length > 0
+      ? (dominantValue ?? undefined)
+      : (liveNumeric ? (normalizeReading(liveNumeric).baseValue ?? undefined) : undefined);
+  // Measurement resolution as decimal places (1 Ω → 0, 0.0001 V → 4) for stat formatting.
+  const statDecimals = binWidth !== undefined ? resolutionDecimals(binWidth) : undefined;
 
   return (
     <div className="flex h-full flex-col bg-canvas">
@@ -277,8 +389,10 @@ export default function Home() {
               yMax={effectiveYMax}
               timeRange={timeRange}
               onTimeRangeChange={setTimeRange}
+              binWidth={binWidth}
+              centerValue={centerValue}
             />
-            <StatisticsPanel stats={sessionStats} unit={chartUnit} />
+            <StatisticsPanel stats={sessionStats} unit={chartUnit} decimals={statDecimals} />
           </div>
         </main>
 
@@ -299,6 +413,8 @@ export default function Home() {
           recording={recording}
           onToggleRecord={handleToggleRecord}
           canRecord={status === 'connected'}
+          stableOnly={stableOnly}
+          onStableOnlyChange={handleStableOnlyChange}
           onClear={flushSession}
           onExportCsv={exportCsv}
           canExport={canExport}

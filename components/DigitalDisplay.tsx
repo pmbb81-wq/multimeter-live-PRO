@@ -1,6 +1,6 @@
 'use client';
 
-import type { Reading } from '@/lib/parser';
+import { displayDecimals, type Reading } from '@/lib/parser';
 
 const MODE_LABEL: Record<Reading['mode'], string> = {
   VOLTAGE: 'DC Voltage',
@@ -13,8 +13,7 @@ const MODE_LABEL: Record<Reading['mode'], string> = {
 
 function calcResolution(display: string, unit: string): string {
   if (!unit || display === 'OL') return '—';
-  const dotIdx = display.indexOf('.');
-  const decimals = dotIdx === -1 ? 0 : display.length - dotIdx - 1;
+  const decimals = displayDecimals(display);
   // No fractional digits (e.g. "123" or a trailing-dot "00.") => whole-unit resolution.
   if (decimals < 1) return `1 ${unit}`;
   const res = `0.${'0'.repeat(decimals - 1)}1`;

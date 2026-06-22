@@ -110,6 +110,31 @@ export function normalizeReading(r: Reading): { baseValue: number | null; baseUn
   return { baseValue, baseUnit };
 }
 
+/** Fractional-digit count of a meter display string ("00.145" → 3, "123" → 0). */
+export function displayDecimals(display: string): number {
+  const dotIdx = display.indexOf('.');
+  return dotIdx === -1 ? 0 : display.length - dotIdx - 1;
+}
+
+/** Decimal places to represent values at a given step/width (1 → 0, 0.001 → 3), clamped to [0, 20]. */
+export function resolutionDecimals(width: number): number {
+  return Math.min(20, Math.max(0, -Math.floor(Math.log10(width))));
+}
+
+/**
+ * Least-significant-digit step of a reading, projected onto its base unit.
+ * Derived from the decimal places of the meter's `display` string (same basis as
+ * the readout's resolution) times the unit's base-scale factor, so it lines up
+ * with the normalized `baseValue` used for charting.
+ * e.g. "09.977" KOM -> 0.001 kΩ × 1e3 = 1 Ω. Returns null for OL / no unit.
+ */
+export function readingResolution(r: Reading): number | null {
+  if (!r.unit || r.value === null) return null;
+  const lsdDisplay = Math.pow(10, -displayDecimals(r.display));
+  const factor = SCALE[r.unit]?.factor ?? 1;
+  return lsdDisplay * factor;
+}
+
 export interface StreamParser {
   push(chunk: string): Reading[];
   reset(): void;

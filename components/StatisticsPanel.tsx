@@ -1,12 +1,22 @@
 'use client';
 
-function fmt(v: number, decimals = 3): string {
+function fmt(v: number, decimals: number): string {
   return v.toFixed(decimals);
 }
 
 export type SessionStats = { count: number; mean: number; m2: number; min: number; max: number };
 
-export function StatisticsPanel({ stats, unit }: { stats: SessionStats | null; unit: string }) {
+export function StatisticsPanel({
+  stats,
+  unit,
+  decimals,
+}: {
+  stats: SessionStats | null;
+  unit: string;
+  // Measurement resolution in decimal places (e.g. 0 for 1 Ω, 4 for 0.0001 V).
+  // Undefined when the device resolution isn't known → fall back to 3 dp.
+  decimals?: number;
+}) {
   const isEmpty = !stats || stats.count === 0;
 
   const avg = isEmpty ? 0 : stats.mean;
@@ -15,13 +25,18 @@ export function StatisticsPanel({ stats, unit }: { stats: SessionStats | null; u
   const peakToPeak = max - min;
   const stdDev = isEmpty || stats.count < 2 ? 0 : Math.sqrt(stats.m2 / stats.count);
 
+  // Min/Max/P2P are real device-grid values → snap to the measurement resolution.
+  // Average/Std-Dev resolve below 1 LSD by averaging noise → keep 2 extra decimals.
+  const baseDp = decimals ?? 3;
+  const aggDp = decimals !== undefined ? decimals + 2 : 3;
+
   const entries: { label: string; value: string; sub?: string; color: string }[] = [
-    { label: 'Average', value: isEmpty ? '—' : fmt(avg), sub: unit, color: 'text-fg' },
-    { label: 'Minimum', value: isEmpty ? '—' : fmt(min), sub: unit, color: 'text-success' },
-    { label: 'Maximum', value: isEmpty ? '—' : fmt(max), sub: unit, color: 'text-danger' },
-    { label: 'Peak to Peak', value: isEmpty ? '—' : fmt(peakToPeak), sub: unit, color: 'text-fg' },
+    { label: 'Average', value: isEmpty ? '—' : fmt(avg, aggDp), sub: unit, color: 'text-fg' },
+    { label: 'Minimum', value: isEmpty ? '—' : fmt(min, baseDp), sub: unit, color: 'text-success' },
+    { label: 'Maximum', value: isEmpty ? '—' : fmt(max, baseDp), sub: unit, color: 'text-danger' },
+    { label: 'Peak to Peak', value: isEmpty ? '—' : fmt(peakToPeak, baseDp), sub: unit, color: 'text-fg' },
     { label: 'Samples', value: isEmpty ? '—' : stats.count.toLocaleString('en'), color: 'text-fg' },
-    { label: 'Std Deviation', value: isEmpty ? '—' : fmt(stdDev), sub: unit, color: 'text-fg' },
+    { label: 'Std Deviation', value: isEmpty ? '—' : fmt(stdDev, aggDp), sub: unit, color: 'text-fg' },
   ];
 
   return (

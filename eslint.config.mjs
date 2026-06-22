@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Agent tooling scratch/memory (gitignored, not app source).
+    ".remember/**",
   ]),
 ]);
 
