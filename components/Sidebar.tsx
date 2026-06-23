@@ -6,7 +6,7 @@ import type { SerialStatus } from '@/lib/useSerial';
 
 const BAUD_RATES = [9600, 19200, 38400, 57600, 115200];
 
-type NavId = 'dashboard' | 'data-log';
+export type NavId = 'dashboard' | 'data-log';
 const NAV_ITEMS: { id: NavId; label: string }[] = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'data-log', label: 'Data Log' },
@@ -24,6 +24,8 @@ export function Sidebar({
   onConnect,
   onDisconnect,
   error,
+  active,
+  onNavChange,
 }: {
   status: SerialStatus;
   baud: number;
@@ -31,6 +33,8 @@ export function Sidebar({
   onConnect: () => void;
   onDisconnect: () => void;
   error: string | null;
+  active: NavId;
+  onNavChange: (id: NavId) => void;
 }) {
   const connected = status === 'connected';
   const connecting = status === 'connecting';
@@ -42,9 +46,10 @@ export function Sidebar({
         {NAV_ITEMS.map((item) => (
           <button
             key={item.id}
+            onClick={() => onNavChange(item.id)}
             className={clsx(
               'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-              item.id === 'dashboard' ? 'bg-accent text-white' : 'text-muted hover:bg-surface hover:text-fg',
+              item.id === active ? 'bg-accent text-white' : 'text-muted hover:bg-surface hover:text-fg',
             )}
           >
             {NAV_ICONS[item.id]}

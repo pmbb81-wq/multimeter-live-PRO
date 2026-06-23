@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Agent tooling scratch/memory (gitignored, not app source).
     ".remember/**",
+    // Claude Design handoff bundle kept as a reference, not app source.
+    "data_log/**",
   ]),
 ]);
 

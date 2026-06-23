@@ -15,6 +15,16 @@ export type Mode =
   | 'DIODE'
   | 'CAPACITANCE';
 
+// Human-readable label for each mode (shared by DigitalDisplay + DataLog).
+export const MODE_LABELS: Record<Mode, string> = {
+  VOLTAGE: 'DC Voltage',
+  CURRENT: 'DC Current',
+  RESISTANCE: 'Resistance',
+  CONTINUITY: 'Continuity',
+  DIODE: 'Diode',
+  CAPACITANCE: 'Capacitance',
+};
+
 export interface Reading {
   mode: Mode;
   raw: string; // original token + body, kept for debugging

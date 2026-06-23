@@ -7,7 +7,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
   return <h3 className="mb-3 text-xs font-semibold text-fg">{children}</h3>;
 }
 
-function ActionButton({
+export function ActionButton({
   onClick,
   icon,
   label,

@@ -1,15 +1,6 @@
 'use client';
 
-import { displayDecimals, type Reading } from '@/lib/parser';
-
-const MODE_LABEL: Record<Reading['mode'], string> = {
-  VOLTAGE: 'DC Voltage',
-  CURRENT: 'DC Current',
-  RESISTANCE: 'Resistance',
-  CONTINUITY: 'Continuity',
-  DIODE: 'Diode',
-  CAPACITANCE: 'Capacitance',
-};
+import { displayDecimals, MODE_LABELS, type Reading } from '@/lib/parser';
 
 function calcResolution(display: string, unit: string): string {
   if (!unit || display === 'OL') return '—';
@@ -31,7 +22,7 @@ export function DigitalDisplay({
 }) {
   const display = reading?.display ?? '- - - -';
   const unit = reading?.unit ?? '';
-  const mode = reading ? MODE_LABEL[reading.mode] : 'No signal';
+  const mode = reading ? MODE_LABELS[reading.mode] : 'No signal';
   const resolution = reading ? calcResolution(reading.display, reading.unit) : '—';
   const isOL = display === 'OL';
   const hasReading = reading !== null;

@@ -6,8 +6,9 @@ import { clsx } from 'clsx';
 import { DigitalDisplay } from '@/components/DigitalDisplay';
 import { RealtimeChart, type ChartPoint, type TimeRange } from '@/components/RealtimeChart';
 import { Controls } from '@/components/Controls';
-import { Sidebar } from '@/components/Sidebar';
+import { Sidebar, type NavId } from '@/components/Sidebar';
 import { StatisticsPanel } from '@/components/StatisticsPanel';
+import { DataLog, type LoggedRow } from '@/components/DataLog';
 import { normalizeReading, readingResolution, resolutionDecimals, type Reading } from '@/lib/parser';
 import { useSerial, type SerialStatus } from '@/lib/useSerial';
 
@@ -44,6 +45,7 @@ const STATUS_DOT: Record<SerialStatus, string> = {
 
 export default function Home() {
   const [baud, setBaud] = useState(115200);
+  const [view, setView] = useState<NavId>('dashboard');
   const [current, setCurrent] = useState<Reading | null>(null);
   const [recording, setRecording] = useState(false);
   const [chartPoints, setChartPoints] = useState<ChartPoint[]>([]);
@@ -62,7 +64,14 @@ export default function Home() {
   // brief outlier (short/disconnect) doesn't pull the window off the main reading.
   const [dominantValue, setDominantValue] = useState<number | null>(null);
 
-  const recordedRef = useRef<Reading[]>([]);
+  // Canonical filtered dataset: the single source of truth for the Data Log table
+  // and CSV export. The chart buffer and stats accumulator are projections fed from
+  // the same log site (see handleReadings). OL is never added here. `recordedRowsRef`
+  // mirrors the state for the stable `exportCsv` callback; `rowIdRef` is the monotonic
+  // id source (stable React key + per-row note target).
+  const [recordedRows, setRecordedRows] = useState<LoggedRow[]>([]);
+  const recordedRowsRef = useRef<LoggedRow[]>([]);
+  const rowIdRef = useRef(0);
 
   type SessionStats = { count: number; mean: number; m2: number; min: number; max: number };
   const statsRef = useRef<SessionStats>({ count: 0, mean: 0, m2: 0, min: Infinity, max: -Infinity });
@@ -112,7 +121,9 @@ export default function Home() {
   useEffect(() => { stableOnlyRef.current = stableOnly; }, [stableOnly]);
 
   const flushSession = useCallback(() => {
-    recordedRef.current = [];
+    recordedRowsRef.current = [];
+    rowIdRef.current = 0;
+    setRecordedRows([]);
     statsRef.current = { count: 0, mean: 0, m2: 0, min: Infinity, max: -Infinity };
     prevValueRef.current = null;
     lastLoggedValueRef.current = null;
@@ -139,6 +150,7 @@ export default function Home() {
 
       let recordingChanged = false;
       const newPoints: ChartPoint[] = [];
+      const newRows: LoggedRow[] = [];
       for (const r of readings) {
         const { baseValue, baseUnit } = normalizeReading(r);
 
@@ -186,9 +198,8 @@ export default function Home() {
         if (recordingRef.current) {
           const stableFilter = stableOnlyRef.current;
           if (baseValue === null) {
-            // OL is never stable: logged to CSV only when the filter is off, and
-            // either way it's a discontinuity — reset the run and the reference.
-            if (!stableFilter) recordedRef.current.push(r);
+            // OL is excluded from the filtered dataset entirely (table, CSV, chart,
+            // and stats). It is still a discontinuity — reset the run and reference.
             prevValueRef.current = null;
             lastLoggedValueRef.current = null;
           } else {
@@ -224,7 +235,11 @@ export default function Home() {
             }
 
             if (logSample) {
-              recordedRef.current.push(r);
+              // Append to the canonical filtered dataset (one entry per logged
+              // sample). The chart point + Welford update below are projections of
+              // this same entry, fed in the same iteration → identical membership.
+              // `iso` is precomputed once here (reused by render, filter, and CSV).
+              newRows.push({ id: rowIdRef.current++, reading: r, note: '', iso: new Date(r.ts).toISOString() });
               // Track the coarsest LSD among logged readings → bin width + stat
               // decimals reflect the recorded data, range-robust to auto-ranging.
               if (res !== null) {
@@ -257,6 +272,14 @@ export default function Home() {
             ? combined.slice(combined.length - MAX_CHART_POINTS)
             : combined;
         });
+      }
+
+      // Append this batch's logged entries to the canonical store once (batched, not
+      // per-sample). The ref is updated synchronously so exportCsv reads the latest;
+      // setState uses the same new reference to trigger a render.
+      if (newRows.length > 0) {
+        recordedRowsRef.current = [...recordedRowsRef.current, ...newRows];
+        setRecordedRows(recordedRowsRef.current);
       }
 
       // Commit a trigger-driven recording transition once (no per-sample setState).
@@ -292,13 +315,23 @@ export default function Home() {
     if (v) setRec(true);
   }, [setRec]);
 
+  // Per-row note edit: annotation only — never touches the reading or statistics.
+  const handleNoteChange = useCallback((id: number, note: string) => {
+    const next = recordedRowsRef.current.map((row) => (row.id === id ? { ...row, note } : row));
+    recordedRowsRef.current = next;
+    setRecordedRows(next);
+  }, []);
+
   const exportCsv = useCallback(() => {
-    const rows: string[] = ['Timestamp,Mode,Value,Unit'];
-    for (const r of recordedRef.current) {
-      const value = r.value === null ? 'OL' : String(r.value);
-      rows.push(`${new Date(r.ts).toISOString()},${r.mode},${value},${r.unit}`);
+    // Serializes the same canonical store the table renders. recordedRows is numeric
+    // only (OL is excluded upstream), so r.value is always present.
+    // Quote/escape note fields (free text may contain commas, quotes, newlines).
+    const esc = (s: string) => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
+    const lines: string[] = ['Timestamp,Mode,Value,Unit,Notes'];
+    for (const { iso, reading: r, note } of recordedRowsRef.current) {
+      lines.push([iso, r.mode, String(r.value), r.unit, esc(note)].join(','));
     }
-    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -308,7 +341,7 @@ export default function Home() {
   }, []);
 
   const recordedCount = sessionStats?.count ?? 0;
-  const canExport = recordedCount > 0;
+  const canExport = recordedRows.length > 0;
   const effectiveYMin = autoScale ? undefined : (toFinite(rangeMin) ?? undefined);
   const effectiveYMax = autoScale ? undefined : (toFinite(rangeMax) ?? undefined);
   // Histogram bin width + statistics decimals. When data is present they are a
@@ -372,53 +405,72 @@ export default function Home() {
           onConnect={handleConnect}
           onDisconnect={disconnect}
           error={error}
+          active={view}
+          onNavChange={setView}
         />
 
-        {/* Main content */}
-        <main className="min-w-0 flex-1 overflow-y-auto p-5">
-          <div className="flex flex-col gap-4">
-            <DigitalDisplay
-              reading={current}
+        {view === 'dashboard' ? (
+          <>
+            {/* Main content */}
+            <main className="min-w-0 flex-1 overflow-y-auto p-5">
+              <div className="flex flex-col gap-4">
+                <DigitalDisplay
+                  reading={current}
+                  recording={recording}
+                  sampleCount={recordedCount}
+                />
+                <RealtimeChart
+                  data={chartPoints}
+                  unit={chartUnit}
+                  yMin={effectiveYMin}
+                  yMax={effectiveYMax}
+                  timeRange={timeRange}
+                  onTimeRangeChange={setTimeRange}
+                  binWidth={binWidth}
+                  centerValue={centerValue}
+                />
+                <StatisticsPanel stats={sessionStats} unit={chartUnit} decimals={statDecimals} />
+              </div>
+            </main>
+
+            {/* Right panel */}
+            <Controls
+              rangeMin={rangeMin}
+              rangeMax={rangeMax}
+              onRangeMinChange={setRangeMin}
+              onRangeMaxChange={setRangeMax}
+              autoScale={autoScale}
+              onAutoScaleChange={setAutoScale}
+              triggerThreshold={triggerThreshold}
+              onTriggerThresholdChange={setTriggerThreshold}
+              triggerArmed={triggerArmed}
+              onTriggerArmedChange={setTriggerArmed}
+              canArm={toFinite(triggerThreshold) !== null && status === 'connected'}
+              triggerUnit={chartUnit}
               recording={recording}
-              sampleCount={recordedCount}
+              onToggleRecord={handleToggleRecord}
+              canRecord={status === 'connected'}
+              stableOnly={stableOnly}
+              onStableOnlyChange={handleStableOnlyChange}
+              onClear={flushSession}
+              onExportCsv={exportCsv}
+              canExport={canExport}
             />
-            <RealtimeChart
-              data={chartPoints}
-              unit={chartUnit}
-              yMin={effectiveYMin}
-              yMax={effectiveYMax}
-              timeRange={timeRange}
-              onTimeRangeChange={setTimeRange}
-              binWidth={binWidth}
-              centerValue={centerValue}
-            />
-            <StatisticsPanel stats={sessionStats} unit={chartUnit} decimals={statDecimals} />
-          </div>
-        </main>
-
-        {/* Right panel */}
-        <Controls
-          rangeMin={rangeMin}
-          rangeMax={rangeMax}
-          onRangeMinChange={setRangeMin}
-          onRangeMaxChange={setRangeMax}
-          autoScale={autoScale}
-          onAutoScaleChange={setAutoScale}
-          triggerThreshold={triggerThreshold}
-          onTriggerThresholdChange={setTriggerThreshold}
-          triggerArmed={triggerArmed}
-          onTriggerArmedChange={setTriggerArmed}
-          canArm={toFinite(triggerThreshold) !== null && status === 'connected'}
-          triggerUnit={chartUnit}
-          recording={recording}
-          onToggleRecord={handleToggleRecord}
-          canRecord={status === 'connected'}
-          stableOnly={stableOnly}
-          onStableOnlyChange={handleStableOnlyChange}
-          onClear={flushSession}
-          onExportCsv={exportCsv}
-          canExport={canExport}
-        />
+          </>
+        ) : (
+          <DataLog
+            reading={current}
+            recording={recording}
+            rows={recordedRows}
+            stats={sessionStats}
+            unit={chartUnit}
+            decimals={statDecimals}
+            onExportCsv={exportCsv}
+            onToggleRecord={handleToggleRecord}
+            onClear={flushSession}
+            onNoteChange={handleNoteChange}
+          />
+        )}
       </div>
 
       {/* ── Footer ── */}
