@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { ServiceWorker } from "@/components/ServiceWorker";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -12,9 +13,27 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Next does not apply basePath to metadata manifest/icon URLs, so prefix them
+// ourselves at build time (layout is a server component) to match the deploy subpath.
+const basePath = process.env.PAGES_BASE_PATH ?? "";
+
 export const metadata: Metadata = {
   title: "Multimeter Visualizer",
   description: "Real-time multimeter data visualization over Web Serial",
+  manifest: `${basePath}/manifest.webmanifest`,
+  icons: {
+    icon: `${basePath}/icon-192.png`,
+    apple: `${basePath}/icon-192.png`,
+  },
+  appleWebApp: {
+    capable: true,
+    title: "Multimeter",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0d1117",
 };
 
 export default function RootLayout({
@@ -27,7 +46,10 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="h-full">{children}</body>
+      <body className="h-full">
+        {children}
+        <ServiceWorker />
+      </body>
     </html>
   );
 }

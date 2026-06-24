@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Full-bleed dark background (maskable: OS applies the shape mask) -->
+  <rect width="512" height="512" fill="#0d1117"/>
+  <!-- Baseline grid hint, kept subtle and within the safe zone -->
+  <line x1="96" y1="256" x2="416" y2="256" stroke="#30363d" stroke-width="6" stroke-linecap="round"/>
+  <!-- Live measurement trace (stepped signal), centered within the maskable safe zone -->
+  <polyline
+    points="104,312 152,312 152,206 208,206 208,340 256,340 256,172 312,172 312,300 360,300 360,236 408,236"
+    fill="none"
+    stroke="#3b82f6"
+    stroke-width="26"
+    stroke-linejoin="round"
+    stroke-linecap="round"/>
+  <!-- Latest-reading node, like the live readout dot -->
+  <circle cx="408" cy="236" r="20" fill="#3b82f6"/>
+  <circle cx="408" cy="236" r="20" fill="none" stroke="#0d1117" stroke-width="6"/>
+</svg>

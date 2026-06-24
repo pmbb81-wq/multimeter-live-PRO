@@ -24,8 +24,7 @@
   ],
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "build": "next build && node scripts/finalize-pwa.mjs",
     "lint": "eslint"
   },
   "dependencies": {

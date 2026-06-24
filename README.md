@@ -14,6 +14,19 @@ running statistics, and export the result to CSV — no backend, no installation
 Open it in a Chromium-based browser, connect your meter, and click **Connect**.
 Everything runs locally in your browser — no data leaves your machine.
 
+### Install & offline
+
+Multimeter·Live is a **Progressive Web App**: in a supporting browser you can
+**install** it (address-bar install icon) to launch it in its own window like a
+native app. After your first visit it also works **fully offline** — handy on a
+bench or in the field with no Wi-Fi, since the meter connects over USB and nothing
+in the app needs the network.
+
+When a new version is published, the app doesn't reload on its own (that would
+interrupt a recording). Instead it shows a small **"A new version is available —
+Reload / Later"** message, so you update on your terms. You never reinstall to
+update.
+
 > **Not an official ZOYI / ZOTEK product.** Multimeter·Live is an independent,
 > community-built project and is **not affiliated with, endorsed by, or supported
 > by ZOYI or ZOTEK**. "ZOYI", "ZOTEK", and "ZT703s" are referenced only to describe
