@@ -40,9 +40,17 @@ export function ServiceWorker() {
       .register(swUrl)
       .then((reg) => {
         registration = reg;
-        if (reg.waiting && navigator.serviceWorker.controller) {
-          setWaiting(reg.waiting);
-        }
+        // Catch a worker that is ALREADY past the start of its lifecycle at
+        // registration time. The register()/update() update check can move a new
+        // worker into installing/waiting before our `updatefound` listener is
+        // attached below — so handling only `updatefound` (or only `waiting`)
+        // races and loses the event. That race is exactly why the installed PWA
+        // missed the prompt until the site was reopened in a browser tab (where,
+        // by then, the worker had reached `waiting` and was caught). track() is a
+        // no-op on null and gates on an existing controller, so first installs
+        // still don't prompt.
+        track(reg.waiting);
+        track(reg.installing);
         reg.addEventListener('updatefound', () => {
           track(reg.installing);
         });
@@ -62,12 +70,18 @@ export function ServiceWorker() {
     };
     document.addEventListener('visibilitychange', checkForUpdate);
 
+    // A PWA kept open and visible for a long logging session fires neither the
+    // load check nor visibilitychange again — poll hourly so a deploy is still
+    // noticed mid-session (sw.js is tiny and bypasses the HTTP cache).
+    const poll = window.setInterval(() => registration?.update().catch(() => {}), 60 * 60 * 1000);
+
     const onControllerChange = () => {
       if (reloadingRef.current) window.location.reload();
     };
     navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
 
     return () => {
+      window.clearInterval(poll);
       document.removeEventListener('visibilitychange', checkForUpdate);
       navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
     };
