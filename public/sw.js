@@ -9,8 +9,17 @@ const CACHE = `multimeter-${VERSION}`;
 
 // Precache the app shell. Note: NO skipWaiting() here — a new worker waits
 // until the user explicitly accepts the update (prompted update strategy).
+// `cache: "reload"` bypasses the HTTP cache so the new cache is filled with the
+// genuinely-new assets, not a stale copy of index.html (GitHub Pages serves HTML
+// with max-age=600, which would otherwise poison the precache).
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(PRECACHE_URLS)));
+  event.waitUntil(
+    caches
+      .open(CACHE)
+      .then((cache) =>
+        cache.addAll(PRECACHE_URLS.map((u) => new Request(u, { cache: "reload" })))
+      )
+  );
 });
 
 // Drop caches from older versions once this worker takes control.
@@ -37,10 +46,12 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  // Navigations → serve the cached app shell (single-page app fallback).
+  // Navigations → network-first so an online reload always shows the latest UI;
+  // fall back to the cached app shell only when offline. (Cache-first here would
+  // pin the HTML to whatever was cached, hiding new deploys until the next update.)
   if (req.mode === "navigate") {
     event.respondWith(
-      caches.match(`${BASE_PATH}/index.html`).then((cached) => cached || fetch(req))
+      fetch(req).catch(() => caches.match(`${BASE_PATH}/index.html`))
     );
     return;
   }
