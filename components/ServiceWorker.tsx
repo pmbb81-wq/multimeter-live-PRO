@@ -34,19 +34,33 @@ export function ServiceWorker() {
       worker.addEventListener('statechange', promote);
     };
 
+    let registration: ServiceWorkerRegistration | undefined;
+
     navigator.serviceWorker
       .register(swUrl)
-      .then((registration) => {
-        if (registration.waiting && navigator.serviceWorker.controller) {
-          setWaiting(registration.waiting);
+      .then((reg) => {
+        registration = reg;
+        if (reg.waiting && navigator.serviceWorker.controller) {
+          setWaiting(reg.waiting);
         }
-        registration.addEventListener('updatefound', () => {
-          track(registration.installing);
+        reg.addEventListener('updatefound', () => {
+          track(reg.installing);
         });
+        // Proactively check on load — an installed PWA launch doesn't reliably
+        // trigger the browser's implicit update check, so without this the prompt
+        // only appears after the site is opened in a normal browser tab.
+        reg.update().catch(() => {});
       })
       .catch(() => {
         /* registration failure is non-fatal — app still works online */
       });
+
+    // Re-check whenever the app is brought to the foreground (covers reopening or
+    // refocusing the installed PWA, which is where implicit checks fall short).
+    const checkForUpdate = () => {
+      if (document.visibilityState === 'visible') registration?.update().catch(() => {});
+    };
+    document.addEventListener('visibilitychange', checkForUpdate);
 
     const onControllerChange = () => {
       if (reloadingRef.current) window.location.reload();
@@ -54,6 +68,7 @@ export function ServiceWorker() {
     navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
 
     return () => {
+      document.removeEventListener('visibilitychange', checkForUpdate);
       navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
     };
   }, []);
