@@ -12,6 +12,12 @@ New version! One exe file! One click! Working on all Windows.
 
 -AC & DC switch plus Hertz label in AC.
 
+-In diode mode beep sound like Zoyi 706S (One beep 0.5-07v Two beeps shottky 0.1-0-4v)
+
+-Alarm beep 
+
+-Color font change
+
 Tested on Zoyi 703s and Zoyi 706s.
 
 <img width="1913" height="941" alt="image" src="https://github.com/user-attachments/assets/bc22ec24-068d-4e04-8313-f03c98febc80" />
