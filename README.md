@@ -1,4 +1,4 @@
-New version!
+New version! One exe file! One click! Working on all Windows.
 
 -Working with Zoyi 703s (BT AND UART)
 
@@ -32,6 +32,8 @@ AC VOLTAGE:
 
 <img width="1902" height="925" alt="image" src="https://github.com/user-attachments/assets/5bafee3b-d9a7-4d83-898e-1445075ae510" />
 
+Port Select
+<img width="584" height="279" alt="image" src="https://github.com/user-attachments/assets/976bd048-2ce7-446c-b3c5-be9de17dfa6c" />
 
 
 
@@ -42,85 +44,62 @@ AC VOLTAGE:
 
 
 
-# Multimeter·Live
 
-Real-time dashboard for the **ZOYI ZT703s** multimeter, running entirely in the
-browser. Connect the meter over the **Web Serial API**, watch live readings on a
-large digital display and a rolling trend chart, capture a logging session with
-running statistics, and export the result to CSV — no backend, no installation.
 
-![Stack: Next.js · React · TypeScript · Tailwind · Chart.js](https://img.shields.io/badge/stack-Next.js%2016%20·%20React%2019%20·%20TypeScript%20·%20Tailwind%20v4-3b82f6)
+Multimeter·Live
 
-## Live demo
+Panel roboczy (dashboard) w czasie rzeczywistym dla multimetru ZOYI ZT703s, działający w całości w przeglądarce. Podłącz miernik za pomocą Web Serial API, obserwuj odczyty na żywo na dużym wyświetlaczu cyfrowym oraz na płynnym wykresie trendów, rejestruj sesje pomiarowe z bieżącymi statystykami i eksportuj wyniki do pliku CSV — bez backendu, bez instalacji.
+Demo na żywo
 
-**<https://fyfar.github.io/multimeter-live/>**
+https://fyfar.github.io/multimeter-live/
 
-Open it in a Chromium-based browser, connect your meter, and click **Connect**.
-Everything runs locally in your browser — no data leaves your machine.
+Otwórz link w przeglądarce opartej na Chromium, podłącz miernik i kliknij Connect (Połącz). Wszystko działa lokalnie w Twojej przeglądarce — żadne dane nie opuszczają Twojego komputera.
+Instalacja i działanie offline
 
-### Install & offline
+Multimeter·Live to Progresywna Aplikacja Internetowa (PWA): w obsługiwanej przeglądarce możesz ją zainstalować (ikona instalacji na pasku adresu), aby uruchamiać ją w osobnym oknie, tak jak natywną aplikację. Po pierwszej wizycie aplikacja działa również całkowicie offline — co jest niezwykle wygodne przy stole warsztatowym lub w terenie bez dostępu do Wi-Fi, ponieważ miernik łączy się przez USB, a aplikacja nie potrzebuje sieci do działania.
 
-Multimeter·Live is a **Progressive Web App**: in a supporting browser you can
-**install** it (address-bar install icon) to launch it in its own window like a
-native app. After your first visit it also works **fully offline** — handy on a
-bench or in the field with no Wi-Fi, since the meter connects over USB and nothing
-in the app needs the network.
+Gdy publikowana jest nowa wersja, aplikacja nie przeładowuje się automatycznie (mogłoby to przerwać rejestrację danych). Zamiast tego wyświetla mały komunikat „A new version is available — Reload / Later” (Dostępna jest nowa wersja — Przeładuj / Później), dzięki czemu aktualizujesz ją na własnych warunkach. Nigdy nie musisz instalować jej ponownie, aby dokonać aktualizacji.
 
-When a new version is published, the app doesn't reload on its own (that would
-interrupt a recording). Instead it shows a small **"A new version is available —
-Reload / Later"** message, so you update on your terms. You never reinstall to
-update.
+    To nie jest oficjalny produkt ZOYI / ZOTEK. Multimeter·Live to niezależny projekt społecznościowy i nie jest powiązany, wspierany ani autoryzowany przez firmy ZOYI lub ZOTEK. Nazwy „ZOYI”, „ZOTEK” oraz „ZT703s” zostały użyte wyłącznie w celu opisania sprzętu, z którym współpracuje to narzędzie.
 
-> **Not an official ZOYI / ZOTEK product.** Multimeter·Live is an independent,
-> community-built project and is **not affiliated with, endorsed by, or supported
-> by ZOYI or ZOTEK**. "ZOYI", "ZOTEK", and "ZT703s" are referenced only to describe
-> the hardware this tool works with.
+    Obsługiwane urządzenia: Narzędzie stworzone specyficznie dla ZOYI ZT703s i jego formatu pakietów szeregowych. Modele ZT703s+ oraz ZT706 prawdopodobnie korzystają z tego samego protokołu i mogą działać, ale nie zostały przetestowane. Inne multimetry nie są obsługiwane.
 
-> **Device support:** Built specifically for the **ZOYI ZT703s** and its serial
-> packet format. The **ZT703s+** and **ZT706** likely use the same protocol and may
-> work, but they are **untested**. Other multimeters are not supported.
+Funkcje
 
-## Features
+    Cyfrowy odczyt na żywo aktualnego pomiaru, trybu, jednostki i rozdzielczości.
 
-- **Live digital readout** of the current measurement, mode, unit, and resolution
-- **Rolling trend chart** with selectable time windows — 10 s, 1 m, 10 m, 1 h, or
-  **all** (plots the entire session)
-- **Session logging** with running statistics: average, min, max, peak-to-peak,
-  sample count, and standard deviation
-- **Trigger auto-logging** — arm a threshold and recording starts automatically when
-  the measured magnitude crosses it, then stops once it falls back below (hysteresis,
-  so a signal hovering at the edge doesn't flap logging on and off)
-- **Auto-scale or manual Y-axis range**, with out-of-range samples flagged on the chart
-- **CSV export** of the recorded session (timestamp, mode, value, unit)
-- **Configurable baud rate** (9600–115200)
-- Supported modes: voltage, current, resistance, continuity, diode, capacitance.
-  Values are normalized to canonical base units (e.g. mV → V) so a mid-stream unit
-  switch doesn't make the chart jump.
+    Płynny wykres trendów z możliwością wyboru okna czasowego — 10 s, 1 m, 10 m, 1 h lub wszystkie (rysuje całą sesję).
 
-## Requirements
+    Logowanie sesji z bieżącymi statystykami: średnia, minimum, maksimum, międzyszczytowa (peak-to-peak), liczba próbek oraz odchylenie standardowe.
 
-- A **ZOYI ZT703s** multimeter connected over USB serial (see device note above).
-- A **Chromium-based browser** (Chrome, Edge, Opera). The Web Serial API is not
-  available in Firefox or Safari.
-- A served origin of **`https://` or `localhost`** — Web Serial requires a secure
-  context. The live demo is served over HTTPS, so it works out of the box.
+    Automatyczne logowanie wyzwalane progiem (Trigger) — ustaw próg, a rejestracja rozpocznie się automatycznie, gdy mierzona wartość go przekroczy, i zatrzyma się, gdy spadnie poniżej (zastosowano histerezę, dzięki czemu sygnał oscylujący na granicy progu nie powoduje ciągłego włączania i wyłączania zapisu).
 
-## Run it locally
+    Automatyczne lub ręczne skalowanie osi Y, z oznaczaniem na wykresie próbek spoza zakresu.
 
-```sh
+    Eksport do CSV zarejestrowanej sesji (znacznik czasu, tryb, wartość, jednostka).
+
+    Konfigurowalna prędkość transmisji (9600–115200 bodów).
+
+    Obsługiwane tryby: napięcie, prąd, rezystancja, ciągłość obwodu, dioda, pojemność. Wartości są normalizowane do podstawowych jednostek układu SI (np. mV → V), dzięki czemu zmiana jednostki w trakcie pomiaru nie powoduje „skoków” na wykresie.
+
+Wymagania
+
+    Multimetr ZOYI ZT703s podłączony przez port szeregowy USB (patrz uwaga o urządzeniach powyżej).
+
+    Przeglądarka oparta na Chromium (Chrome, Edge, Opera). Interfejs Web Serial API nie jest dostępny w przeglądarkach Firefox ani Safari.
+
+    Serwowanie strony z poziomu https:// lub localhost — Web Serial wymaga bezpiecznego kontekstu. Demo na żywo jest serwowane przez HTTPS, więc działa od razu.
+
+Uruchomienie lokalne
+Bash
+
 npm install
 npm run dev
-```
 
-Open [http://localhost:3000](http://localhost:3000), click **Connect**, and pick
-your serial port from the browser prompt.
+Otwórz adres http://localhost:3000, kliknij Connect i wybierz swój port szeregowy z monitu przeglądarki.
+Współpraca (Contributing)
 
-## Contributing
-
-Issues and pull requests are welcome! If you have a ZT703s+ or ZT706 and can confirm
-whether it works, or you'd like to add a feature or fix a bug, please open an
-[issue](https://github.com/Fyfar/multimeter-live/issues) or send a PR.
-
+Zgłoszenia problemów (Issues) oraz Pull Requesty są mile widziane! Jeśli posiadasz model ZT703s+ lub ZT706 i możesz potwierdzić, czy działa, albo chcesz dodać nową funkcję lub naprawić błąd, otwórz zgłoszenie (issue) lub wyślij PR.
 ## License
 
 [MIT](./LICENSE)
