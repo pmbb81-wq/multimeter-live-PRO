@@ -1,3 +1,47 @@
+New version!
+
+-Working with Zoyi 703s (BT AND UART)
+
+-Working with Zoyi 706s (BT ONLY)
+
+-PORT COM SELECT
+
+-BROWSER SELECT
+
+-Protocol Select (Standard and extended)
+
+-AC & DC switch plus Hertz label in AC.
+
+Tested on Zoyi 703s and Zoyi 706s.
+
+<img width="1913" height="941" alt="image" src="https://github.com/user-attachments/assets/bc22ec24-068d-4e04-8313-f03c98febc80" />
+
+Add bluetooth device:
+
+<img width="1437" height="839" alt="image" src="https://github.com/user-attachments/assets/c879d9c2-6788-4ef7-a9b7-68765140eacb" />
+
+<img width="1027" height="427" alt="image" src="https://github.com/user-attachments/assets/b7b0da32-b669-459d-8d02-cbc2f781ca8a" />
+
+Zoyi ZT-706S CONNECTED
+
+<img width="1916" height="929" alt="image" src="https://github.com/user-attachments/assets/7655a7aa-04c0-4e8b-b244-a3aa4b8f308e" />
+
+<img width="1916" height="923" alt="image" src="https://github.com/user-attachments/assets/270e88c1-ee4a-4847-b134-694b3e4284c6" />
+
+AC VOLTAGE:
+
+<img width="1902" height="925" alt="image" src="https://github.com/user-attachments/assets/5bafee3b-d9a7-4d83-898e-1445075ae510" />
+
+
+
+
+
+
+
+
+
+
+
 # Multimeter·Live
 
 Real-time dashboard for the **ZOYI ZT703s** multimeter, running entirely in the
