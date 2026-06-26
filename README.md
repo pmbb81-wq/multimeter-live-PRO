@@ -16,7 +16,13 @@ New version! One exe file! One click! Working on all Windows.
 
 -Alarm beep 
 
+<img width="338" height="154" alt="image" src="https://github.com/user-attachments/assets/e41b53ea-4ef0-4f1f-935c-2c0ddd54a87b" />
+
+
 -Color font change
+
+<img width="1257" height="490" alt="image" src="https://github.com/user-attachments/assets/1e05b61f-8b8e-499f-b78d-89aca39da750" />
+
 
 Tested on Zoyi 703s and Zoyi 706s.
 
