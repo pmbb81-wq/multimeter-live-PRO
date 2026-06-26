@@ -8,6 +8,10 @@ New version! One exe file! One click! Working on all Windows.
 
 -BROWSER SELECT
 
+-AUTO CONNECT
+
+-SAVE SETTINGS IN .JSON FILE
+
 -Protocol Select (Standard and extended)
 
 -AC & DC switch plus Hertz label in AC.
@@ -47,6 +51,11 @@ AC VOLTAGE:
 Port Select
 
 <img width="584" height="279" alt="image" src="https://github.com/user-attachments/assets/976bd048-2ce7-446c-b3c5-be9de17dfa6c" />
+
+FULL VERSION
+
+<img width="1908" height="924" alt="image" src="https://github.com/user-attachments/assets/274eb3df-b946-4d39-aa29-15aacc473cde" />
+
 
 
 
