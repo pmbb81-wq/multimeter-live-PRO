@@ -10,6 +10,11 @@ New version! One exe file! One click! Working on all Windows.
 
 -AUTO CONNECT
 
+-CHART COLOR
+
+<img width="1916" height="931" alt="image" src="https://github.com/user-attachments/assets/b421e89f-73a1-4a11-a6b6-cf0f87019c7f" />
+
+
 -SAVE SETTINGS IN .JSON FILE
 
 -Protocol Select (Standard and extended)
