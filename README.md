@@ -1,5 +1,14 @@
 New version! One exe file! One click! Working on all Windows.
 
+-FULLY SUPPORT ZT-706
+
+-HOLD MODE
+
+-DC AC AC-V.F.C
+
+-DIODE MODE BEEP SOUND
+
+
 -Working with Zoyi 703s (BT AND UART)
 
 -Working with Zoyi 706s (BT ONLY)
