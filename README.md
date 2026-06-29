@@ -4,6 +4,8 @@ New version! One exe file! One click! Working on all Windows.
 
 -HOLD MODE
 
+-REL 
+
 -DC AC AC-V.F.C
 
 -DIODE MODE BEEP SOUND
@@ -68,7 +70,8 @@ Port Select
 
 FULL VERSION
 
-<img width="1908" height="924" alt="image" src="https://github.com/user-attachments/assets/274eb3df-b946-4d39-aa29-15aacc473cde" />
+<img width="1897" height="916" alt="image" src="https://github.com/user-attachments/assets/9625171f-33f9-4bf8-8cac-d4461f1e172d" />
+
 
 
 
